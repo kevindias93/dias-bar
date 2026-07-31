@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Somente usuários autenticados podem ler e escrever.
+    // Crie os usuários manualmente no Console do Firebase (Authentication).
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
