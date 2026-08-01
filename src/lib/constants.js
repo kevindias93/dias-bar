@@ -1,4 +1,4 @@
-import { Beer, Sandwich, UtensilsCrossed, Candy, Banknote, QrCode, CreditCard } from "lucide-react";
+import { Beer, Sandwich, UtensilsCrossed, Candy, CupSoda, Banknote, QrCode, CreditCard } from "lucide-react";
 
 export const LOW_STOCK = 5;
 
@@ -7,7 +7,7 @@ export const CATS = [
   { key: "salgado", label: "Salgados", icon: Sandwich },
   { key: "porcao", label: "Porções", icon: UtensilsCrossed },
   { key: "doce", label: "Doces", icon: Candy },
-  { key: "refrigetante",  label: "Refrigerantes", icon: CupSoda },
+  { key: "refrigerante", label: "Refrigerantes", icon: CupSoda },
 ];
 export const catLabel = (k) => (CATS.find((c) => c.key === k) || {}).label || k;
 
