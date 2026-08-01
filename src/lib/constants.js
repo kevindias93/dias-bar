@@ -7,6 +7,7 @@ export const CATS = [
   { key: "salgado", label: "Salgados", icon: Sandwich },
   { key: "porcao", label: "Porções", icon: UtensilsCrossed },
   { key: "doce", label: "Doces", icon: Candy },
+  { key: "refrigetante",  label: "Refrigerantes", icon: CupSoda },
 ];
 export const catLabel = (k) => (CATS.find((c) => c.key === k) || {}).label || k;
 
