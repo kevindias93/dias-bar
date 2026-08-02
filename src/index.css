@@ -400,3 +400,21 @@ h3{font-family:'Oswald',sans-serif;font-weight:500;font-size:15px;letter-spacing
 .db-check{display:flex;align-items:center;gap:9px;margin:2px 0 12px;cursor:pointer;color:var(--cream);font-size:13px;}
 .db-check input{width:18px;height:18px;accent-color:var(--gold);cursor:pointer;}
 .db-sale-total.neg{color:var(--amber);}
+/* ===== telas grandes (desktop): usar a tela toda ===== */
+@media(min-width:1000px){
+  #root{ align-items:stretch; padding:0; }
+  .db-shell{
+    max-width:1400px;
+    height:100dvh;
+    border-radius:0;
+    border-left:1px solid var(--line2);
+    border-right:1px solid var(--line2);
+    box-shadow:none;
+  }
+  .db-main{ padding:24px 40px 100px; }
+  /* mais produtos por linha, aproveitando a largura */
+  .db-grid{ grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px; }
+  .db-tabgrid{ grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+  /* barra do carrinho acompanha melhor a largura */
+  .db-cartbar{ max-width:560px; }
+}
