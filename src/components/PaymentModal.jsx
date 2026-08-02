@@ -4,7 +4,7 @@ import { Modal } from "./Modal";
 import { PAYS, payLabel } from "../lib/constants";
 import { brl, num } from "../lib/format";
 
-export default function PaymentModal({ total, machines, accounts, onConfirm, onClose, title = "Receber pagamento" }) {
+export default function PaymentModal({ total, machines, accounts, onConfirm, onClose, title = "Receber pagamento", allowPartial = false }) {
   const [mode, setMode] = useState("single");
 
   /* ---------- simples ---------- */
@@ -13,10 +13,15 @@ export default function PaymentModal({ total, machines, accounts, onConfirm, onC
   const [machineId, setMachineId] = useState(machines[0]?.id || "");
   const [cardType, setCardType] = useState("credito");
   const [accountId, setAccountId] = useState(accounts[0]?.id || "");
-  const change = method === "dinheiro" && num(received) > total ? num(received) - total : 0;
+  const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+  // Com pagamento parcial: o campo "valor recebido" define quanto entra agora (vazio = total).
+  const receivedNum = received === "" ? total : num(received);
+  const singleAmount = allowPartial ? Math.min(receivedNum, total) : total;
+  const singleLeft = allowPartial ? r2(total - singleAmount) : 0;
+  const change = method === "dinheiro" && receivedNum > total ? r2(receivedNum - total) : 0;
 
   const confirmSingle = () => {
-    const p = { method, amount: total };
+    const p = { method, amount: singleAmount };
     if (method === "cartao") {
       p.cardType = cardType;
       const m = machines.find((x) => x.id === machineId);
@@ -77,12 +82,15 @@ export default function PaymentModal({ total, machines, accounts, onConfirm, onC
             })}
           </div>
 
-          {method === "dinheiro" && (
+          {(method === "dinheiro" || allowPartial) && (
             <label className="db-field">
-              <span>Valor recebido (opcional)</span>
+              <span>{allowPartial ? "Valor pago agora (deixe vazio p/ tudo)" : "Valor recebido (opcional)"}</span>
               <input type="number" inputMode="decimal" min="0" step="0.5" value={received}
                 onChange={(e) => setReceived(e.target.value)} placeholder={brl(total)} />
               {change > 0 && <em className="db-change">Troco: {brl(change)}</em>}
+              {allowPartial && singleLeft > 0.009 && (
+                <em className="db-partial-hint">Fica {brl(singleLeft)} na comanda para pagar depois</em>
+              )}
             </label>
           )}
 
@@ -117,7 +125,9 @@ export default function PaymentModal({ total, machines, accounts, onConfirm, onC
           <button className="db-linkbtn" onClick={() => setMode("split")}>Dividir pagamento</button>
           <div className="db-modal-actions">
             <button className="db-btn ghost" onClick={onClose}>Cancelar</button>
-            <button className="db-btn gold" onClick={confirmSingle}><Check size={16} /> Confirmar</button>
+            <button className="db-btn gold" onClick={confirmSingle} disabled={allowPartial && singleAmount <= 0}>
+              <Check size={16} /> {allowPartial && singleLeft > 0.009 ? "Receber parcial" : "Confirmar"}
+            </button>
           </div>
         </>
       ) : (
@@ -159,17 +169,20 @@ export default function PaymentModal({ total, machines, accounts, onConfirm, onC
 
           <button className="db-linkbtn" onClick={addLine}><Plus size={14} /> Adicionar forma</button>
 
-          <div className={"db-split-status " + (Math.abs(remaining) < 0.01 ? "ok" : "")}>
+          <div className={"db-split-status " + (Math.abs(remaining) < 0.01 ? "ok" : allowPartial && remaining > 0 ? "partial" : "")}>
             {Math.abs(remaining) < 0.01
               ? "Valores conferem"
-              : remaining > 0 ? `Falta ${brl(remaining)}` : `Excede em ${brl(-remaining)}`}
+              : remaining > 0
+                ? (allowPartial ? `Fica ${brl(remaining)} na comanda` : `Falta ${brl(remaining)}`)
+                : `Excede em ${brl(-remaining)}`}
           </div>
 
           <button className="db-linkbtn" onClick={() => setMode("single")}>Voltar ao pagamento simples</button>
           <div className="db-modal-actions">
             <button className="db-btn ghost" onClick={onClose}>Cancelar</button>
-            <button className="db-btn gold" onClick={confirmSplit} disabled={Math.abs(remaining) >= 0.01}>
-              <Check size={16} /> Confirmar
+            <button className="db-btn gold" onClick={confirmSplit}
+              disabled={allowPartial ? (applied <= 0 || remaining < -0.01) : Math.abs(remaining) >= 0.01}>
+              <Check size={16} /> {allowPartial && remaining > 0.01 ? "Receber parcial" : "Confirmar"}
             </button>
           </div>
         </>

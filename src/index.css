@@ -111,6 +111,17 @@ h3{font-family:'Oswald',sans-serif;font-weight:500;font-size:15px;letter-spacing
 .db-change{font-style:normal;color:var(--green);font-size:13px;font-weight:500;}
 .db-hintline{font-style:normal;color:var(--muted);font-size:12px;padding:4px 0;}
 
+/* campo de busca */
+.db-search{position:relative;display:flex;align-items:center;margin-bottom:12px;}
+.db-search-ic{position:absolute;left:12px;color:var(--muted);pointer-events:none;}
+.db-search input{width:100%;background:var(--bg);border:1px solid var(--line2);border-radius:10px;
+  color:var(--cream);font-size:15px;padding:11px 38px 11px 36px;}
+.db-search input:focus{outline:none;border-color:var(--gold);}
+.db-search input::placeholder{color:var(--muted);}
+.db-search-clear{position:absolute;right:6px;width:30px;height:30px;border:none;background:none;color:var(--muted);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:8px;}
+.db-search-clear:hover{color:var(--cream);}
+
 /* chips + product grid */
 .db-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;margin-bottom:4px;scrollbar-width:none;}
 .db-chips::-webkit-scrollbar{display:none;}
@@ -194,6 +205,9 @@ h3{font-family:'Oswald',sans-serif;font-weight:500;font-size:15px;letter-spacing
 .db-tabhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px;}
 .db-tabhead-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:2px;}
 .db-tabhead-total{font-family:'Oswald',sans-serif;font-weight:700;font-size:26px;color:var(--gold);text-shadow:0 0 20px rgba(216,173,70,.25);}
+.db-tabhead-vals{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.db-tabhead-paid{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;}
+.db-manualbtn{margin-top:12px;}
 .db-tabitems{margin-bottom:16px;}
 .db-tab-actions{display:flex;gap:10px;}
 .db-tab-actions .db-btn{flex:1;}
@@ -258,6 +272,8 @@ h3{font-family:'Oswald',sans-serif;font-weight:500;font-size:15px;letter-spacing
 .db-splitline-detail select{flex:1;background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:9px;color:var(--cream);font-size:13px;}
 .db-split-status{text-align:center;font-size:13px;color:var(--amber);padding:8px 0;font-weight:500;}
 .db-split-status.ok{color:var(--green);}
+.db-split-status.partial{color:var(--gold);}
+.db-partial-hint{font-style:normal;color:var(--gold);font-size:12px;font-weight:500;}
 
 /* ajustes */
 .db-cfg-head{display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;margin-bottom:6px;border-bottom:1px solid var(--line);}

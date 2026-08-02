@@ -68,7 +68,7 @@ export default function Caixa() {
 
   const ordered = [...sales].sort((a, b) => (b.paidAt?.seconds || 0) - (a.paidAt?.seconds || 0));
   const saleLabel = (s) =>
-    s.origin === "comanda" ? s.customer
+    s.origin === "comanda" ? (s.customer + (s.partial ? " · parcial" : ""))
       : s.origin === "troca" ? "Troca de ficha"
       : (s.items || []).length && (s.items || []).every((i) => i.kind === "ficha") ? "Venda de ficha"
       : "Avulso";
@@ -134,7 +134,7 @@ export default function Caixa() {
               <span className="db-sale-top">
                 {timeStr(s.paidAt)} · {saleLabel(s)}{(s.payments || []).length ? " · " + s.payments.map((p) => payLabel(p.method)).join("+") : ""}
               </span>
-              <span className="db-sale-items">{(s.items || []).map((i) => `${i.qty}× ${i.name}${i.kind === "ficha" ? " (ficha)" : ""}`).join(", ")}</span>
+              <span className="db-sale-items">{(s.items || []).length ? (s.items || []).map((i) => `${i.qty}× ${i.name}${i.kind === "ficha" ? " (ficha)" : ""}`).join(", ") : s.partial ? "Pagamento parcial da comanda" : ""}</span>
             </div>
             <span className="db-sale-total">{brl(s.total)}</span>
             <button className="db-ic-btn danger" onClick={() => setVoidTarget(s)} title="Estornar"><X size={15} /></button>

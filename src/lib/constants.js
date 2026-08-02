@@ -1,4 +1,4 @@
-import { Beer, Sandwich, UtensilsCrossed, Candy, CupSoda, Banknote, QrCode, CreditCard } from "lucide-react";
+import { Beer, Sandwich, UtensilsCrossed, Candy, CupSoda, Wine, Boxes, Banknote, QrCode, CreditCard } from "lucide-react";
 
 export const LOW_STOCK = 5;
 
@@ -8,7 +8,12 @@ export const CATS = [
   { key: "porcao", label: "Porções", icon: UtensilsCrossed },
   { key: "doce", label: "Doces", icon: Candy },
   { key: "refrigerante", label: "Refrigerantes", icon: CupSoda },
+  { key: "dose", label: "Doses", icon: Wine },
+  { key: "diversos", label: "Diversos", icon: Boxes },
 ];
+
+// Categoria usada nos lançamentos de valor manual (avulso, sem produto cadastrado).
+export const MANUAL_CAT = "diversos";
 export const catLabel = (k) => (CATS.find((c) => c.key === k) || {}).label || k;
 
 // Formas de pagamento — ficha NÃO é forma de pagamento (ver "Trocar ficha" em Vender).

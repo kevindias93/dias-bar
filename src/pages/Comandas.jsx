@@ -1,15 +1,18 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Minus, X, Lock, ClipboardList, UserPlus, ChevronLeft, Ticket } from "lucide-react";
+import { Plus, Minus, X, Lock, ClipboardList, UserPlus, ChevronLeft, Ticket, Coins } from "lucide-react";
 import { useData } from "../context/DataContext";
 import { useToast } from "../components/Toast";
 import { Modal, ConfirmModal } from "../components/Modal";
 import ProductPicker from "../components/ProductPicker";
 import PaymentModal from "../components/PaymentModal";
+import ManualEntryModal from "../components/ManualEntryModal";
 import { brl, timeStr } from "../lib/format";
 
+const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
 export default function Comandas() {
-  const { tabs, products, register, machines, accounts, openTab, addItemToTab, removeItemFromTab, closeTab, cancelTab } = useData();
+  const { tabs, products, register, machines, accounts, openTab, addItemToTab, addManualToTab, removeItemFromTab, payTab, cancelTab } = useData();
   const flash = useToast();
   const navigate = useNavigate();
 
@@ -17,6 +20,7 @@ export default function Comandas() {
   const [newOpen, setNewOpen] = useState(false);
   const [customer, setCustomer] = useState("");
   const [addKind, setAddKind] = useState(null); // "consumo" | "ficha" | null
+  const [manualOpen, setManualOpen] = useState(false);
   const [paying, setPaying] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
 
@@ -41,11 +45,24 @@ export default function Comandas() {
     setNewOpen(false);
     flash("Comanda aberta");
   };
+  const addManual = async ({ name, price }) => {
+    await addManualToTab(tab, { name, price });
+    setManualOpen(false);
+    flash("Valor lançado");
+  };
   const pay = async (payments) => {
-    await closeTab(tab, payments);
+    const already = r2(tab.paidSoFar || 0);
+    const remaining = r2((tab.total || 0) - already);
+    const paid = r2((payments || []).reduce((a, p) => a + (p.amount || 0), 0));
+    const willSettle = paid >= remaining - 0.01;
+    await payTab(tab, payments);
     setPaying(false);
-    setSelectedId(null);
-    flash(`Comanda de ${tab.customer} fechada`);
+    if (willSettle) {
+      setSelectedId(null);
+      flash(`Comanda de ${tab.customer} fechada`);
+    } else {
+      flash(`Parcial recebido · resta ${brl(r2(remaining - paid))}`);
+    }
   };
   const doCancel = async () => {
     await cancelTab(tab);
@@ -57,7 +74,10 @@ export default function Comandas() {
   if (tab) {
     const consumo = (tab.items || []).filter((i) => (i.kind || "consumo") === "consumo");
     const fichas = (tab.items || []).filter((i) => i.kind === "ficha");
+    const manuais = (tab.items || []).filter((i) => i.kind === "manual");
     const badges = Object.fromEntries((addKind === "ficha" ? fichas : consumo).map((i) => [i.productId, i.qty]));
+    const paidSoFar = r2(tab.paidSoFar || 0);
+    const remaining = r2((tab.total || 0) - paidSoFar);
     return (
       <div>
         <button className="db-back" onClick={() => setSelectedId(null)}><ChevronLeft size={18} /> Comandas</button>
@@ -66,7 +86,12 @@ export default function Comandas() {
             <span className="db-tabhead-label">Comanda · aberta {timeStr(tab.createdAt)}</span>
             <h2>{tab.customer}</h2>
           </div>
-          <strong className="db-tabhead-total">{brl(tab.total)}</strong>
+          <div className="db-tabhead-vals">
+            <strong className="db-tabhead-total">{brl(remaining)}</strong>
+            {paidSoFar > 0 && (
+              <span className="db-tabhead-paid">de {brl(tab.total)} · pago {brl(paidSoFar)}</span>
+            )}
+          </div>
         </div>
 
         <div className="db-tabitems">
@@ -104,13 +129,32 @@ export default function Comandas() {
               </div>
             );
           })}
+          {manuais.map((it) => {
+            const pseudo = { id: it.productId, name: it.name, price: it.price, cost: 0, category: "diversos" };
+            return (
+              <div key={"m" + it.productId} className="db-cart-row">
+                <div className="db-cart-info">
+                  <span className="db-cart-name">{it.name} <b className="db-vtag">· valor</b></span>
+                  <span className="db-cart-sub">{brl(it.price)} · {brl(it.price * it.qty)}</span>
+                </div>
+                <div className="db-stepper">
+                  <button onClick={() => removeItemFromTab(tab, it.productId, "manual")}><Minus size={15} /></button>
+                  <span>{it.qty}</span>
+                  <button onClick={() => addItemToTab(tab, pseudo, "manual")}><Plus size={15} /></button>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="db-tab-actions three">
           <button className="db-btn ghost" onClick={() => setAddKind("consumo")}><Plus size={16} /> Itens</button>
           <button className="db-btn ghost" onClick={() => setAddKind("ficha")}><Ticket size={16} /> Ficha</button>
-          <button className="db-btn gold" disabled={(tab.total || 0) <= 0} onClick={() => setPaying(true)}>Fechar</button>
+          <button className="db-btn ghost" onClick={() => setManualOpen(true)}><Coins size={16} /> Valor</button>
         </div>
+        <button className="db-btn gold block" style={{ marginTop: 10 }} disabled={remaining <= 0} onClick={() => setPaying(true)}>
+          {paidSoFar > 0 ? `Receber restante · ${brl(remaining)}` : "Fechar"}
+        </button>
         <button className="db-linkbtn danger center" onClick={() => setConfirmCancel(true)}>Cancelar comanda</button>
 
         {addKind && (
@@ -131,10 +175,17 @@ export default function Comandas() {
           </div>
         )}
 
+        {manualOpen && (
+          <ManualEntryModal
+            title={`Lançar valor · ${tab.customer}`}
+            onConfirm={addManual} onClose={() => setManualOpen(false)}
+          />
+        )}
+
         {paying && (
           <PaymentModal
-            total={tab.total || 0} machines={machines} accounts={accounts}
-            title={`Fechar conta · ${tab.customer}`}
+            total={remaining} machines={machines} accounts={accounts} allowPartial
+            title={`Receber · ${tab.customer}`}
             onConfirm={pay} onClose={() => setPaying(false)}
           />
         )}
@@ -163,13 +214,20 @@ export default function Comandas() {
         </div>
       ) : (
         <div className="db-tabgrid">
-          {ordered.map((t) => (
-            <button key={t.id} className="db-tabcard" onClick={() => setSelectedId(t.id)}>
-              <span className="db-tabcard-name">{t.customer}</span>
-              <span className="db-tabcard-meta">{(t.items || []).reduce((a, i) => a + i.qty, 0)} itens</span>
-              <strong className="db-tabcard-total">{brl(t.total)}</strong>
-            </button>
-          ))}
+          {ordered.map((t) => {
+            const paid = r2(t.paidSoFar || 0);
+            const rem = r2((t.total || 0) - paid);
+            return (
+              <button key={t.id} className="db-tabcard" onClick={() => setSelectedId(t.id)}>
+                <span className="db-tabcard-name">{t.customer}</span>
+                <span className="db-tabcard-meta">
+                  {(t.items || []).reduce((a, i) => a + i.qty, 0)} itens
+                  {paid > 0 && <b className="db-vtag"> · parcial</b>}
+                </span>
+                <strong className="db-tabcard-total">{brl(rem)}</strong>
+              </button>
+            );
+          })}
         </div>
       )}
 

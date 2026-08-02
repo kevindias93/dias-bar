@@ -1,11 +1,17 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShoppingCart, Ticket, ArrowLeftRight, Minus, Plus, X, Lock } from "lucide-react";
+import { ShoppingCart, Ticket, ArrowLeftRight, Minus, Plus, X, Lock, Coins } from "lucide-react";
 import { useData } from "../context/DataContext";
 import { useToast } from "../components/Toast";
 import ProductPicker from "../components/ProductPicker";
 import PaymentModal from "../components/PaymentModal";
+import ManualEntryModal from "../components/ManualEntryModal";
 import { brl } from "../lib/format";
+
+const uid = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : "m" + Date.now() + Math.random().toString(16).slice(2);
 
 const MODES = [
   { key: "venda", label: "Venda", icon: ShoppingCart },
@@ -19,8 +25,10 @@ export default function Vender() {
   const navigate = useNavigate();
   const [mode, setMode] = useState("venda");
   const [cart, setCart] = useState({});
+  const [manuals, setManuals] = useState([]); // lançamentos de valor manual (só na venda)
   const [sheet, setSheet] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
 
   const isFicha = mode === "ficha"; // vende ficha (não baixa estoque, entra dinheiro)
   const isTroca = mode === "troca"; // troca ficha por mercadoria (baixa estoque, sem dinheiro)
@@ -31,8 +39,10 @@ export default function Vender() {
       .filter((x) => x.p && x.qty > 0),
     [cart, products]
   );
-  const total = items.reduce((s, { p, qty }) => s + p.price * qty, 0);
-  const count = items.reduce((s, { qty }) => s + qty, 0);
+  const manualTotal = manuals.reduce((s, m) => s + m.price * m.qty, 0);
+  const manualCount = manuals.reduce((s, m) => s + m.qty, 0);
+  const total = items.reduce((s, { p, qty }) => s + p.price * qty, 0) + manualTotal;
+  const count = items.reduce((s, { qty }) => s + qty, 0) + manualCount;
 
   if (!register.open) {
     return (
@@ -45,7 +55,7 @@ export default function Vender() {
     );
   }
 
-  const clearMode = (m) => { setMode(m); setCart({}); setSheet(false); };
+  const clearMode = (m) => { setMode(m); setCart({}); setManuals([]); setSheet(false); };
   const pick = (p) => {
     const cur = cart[p.id] || 0;
     if (!isFicha && cur >= p.stock) { flash("Sem estoque suficiente", "warn"); return; }
@@ -60,8 +70,18 @@ export default function Vender() {
     setCart(next);
   };
 
-  const linesOf = () => items.map(({ p, qty }) => lineFrom(p, qty, isFicha ? "ficha" : "consumo"));
-  const reset = () => { setCart({}); setSheet(false); setPaying(false); };
+  const addManual = ({ name, price }) => {
+    setManuals([...manuals, { id: uid(), name, price, qty: 1 }]);
+    setManualOpen(false);
+  };
+  const setManualQty = (id, qty) =>
+    setManuals(qty <= 0 ? manuals.filter((m) => m.id !== id) : manuals.map((m) => (m.id === id ? { ...m, qty } : m)));
+
+  const linesOf = () => [
+    ...items.map(({ p, qty }) => lineFrom(p, qty, isFicha ? "ficha" : "consumo")),
+    ...manuals.map((m) => ({ productId: m.id, name: m.name, category: "diversos", price: m.price, cost: 0, qty: m.qty, kind: "manual" })),
+  ];
+  const reset = () => { setCart({}); setManuals([]); setSheet(false); setPaying(false); };
 
   // Troca: sem pagamento — baixa o estoque e não entra dinheiro.
   const confirmTroca = async () => {
@@ -103,6 +123,12 @@ export default function Vender() {
 
       <ProductPicker products={products} onPick={pick} badges={cart} allowOut={isFicha} />
 
+      {!isFicha && !isTroca && (
+        <button className="db-btn ghost block db-manualbtn" onClick={() => setManualOpen(true)}>
+          <Coins size={16} /> Lançar valor manual
+        </button>
+      )}
+
       {count > 0 && (
         <div className="db-cartbar" onClick={() => setSheet(true)}>
           <span className="db-cartbar-c">
@@ -135,6 +161,19 @@ export default function Vender() {
                   </div>
                 </div>
               ))}
+              {manuals.map((m) => (
+                <div key={m.id} className="db-cart-row">
+                  <div className="db-cart-info">
+                    <span className="db-cart-name">{m.name} <b className="db-vtag">· valor</b></span>
+                    <span className="db-cart-sub">{brl(m.price)} · {brl(m.price * m.qty)}</span>
+                  </div>
+                  <div className="db-stepper">
+                    <button onClick={() => setManualQty(m.id, m.qty - 1)}><Minus size={15} /></button>
+                    <span>{m.qty}</span>
+                    <button onClick={() => setManualQty(m.id, m.qty + 1)}><Plus size={15} /></button>
+                  </div>
+                </div>
+              ))}
             </div>
             <div className="db-sheet-total"><span>Total</span><strong>{brl(total)}</strong></div>
             {isTroca ? (
@@ -152,6 +191,10 @@ export default function Vender() {
           title={isFicha ? "Receber venda de fichas" : "Receber pagamento"}
           onConfirm={finish} onClose={() => setPaying(false)}
         />
+      )}
+
+      {manualOpen && (
+        <ManualEntryModal onConfirm={addManual} onClose={() => setManualOpen(false)} />
       )}
     </div>
   );

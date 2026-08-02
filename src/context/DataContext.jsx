@@ -166,6 +166,22 @@ export function DataProvider({ children }) {
     await batch.commit();
   };
 
+  // Lança um valor livre (avulso) na comanda: não baixa estoque e não tem produto cadastrado.
+  const addManualToTab = async (tab, { name, price }) => {
+    const line = {
+      productId: uid(),
+      name: (name || "Diversos").trim() || "Diversos",
+      category: "diversos",
+      price: Number(price) || 0,
+      cost: 0,
+      qty: 1,
+      kind: "manual",
+    };
+    const items = [...(tab.items || []), line];
+    const total = items.reduce((a, it) => a + it.price * it.qty, 0);
+    await updateDoc(doc(db, "tabs", tab.id), { items, total });
+  };
+
   const removeItemFromTab = async (tab, productId, kind = "consumo") => {
     let items = [...(tab.items || [])];
     const i = items.findIndex((x) => x.productId === productId && (x.kind || "consumo") === kind);
@@ -194,6 +210,52 @@ export function DataProvider({ children }) {
     });
     // Estoque de consumo já baixou ao lançar; fichas não baixam estoque.
     batch.delete(doc(db, "tabs", tab.id));
+    await batch.commit();
+  };
+
+  // Recebe pagamento de uma comanda, aceitando pagamento PARCIAL.
+  // Se o valor pago quita o restante, fecha a comanda (registra a venda com os itens).
+  // Se pagar menos, registra só o dinheiro que entrou e mantém a comanda aberta
+  // com o saldo restante (os itens continuam na comanda até a quitação).
+  const payTab = async (tab, payments) => {
+    const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+    const paid = round2((payments || []).reduce((a, p) => a + (p.amount || 0), 0));
+    const total = round2(tab.total || 0);
+    const already = round2(tab.paidSoFar || 0);
+    const remaining = round2(total - already);
+    const settle = paid >= remaining - 0.01; // quita o que faltava
+
+    const batch = writeBatch(db);
+    const saleRef = doc(col("sales"));
+    if (settle) {
+      // Quitação: registra a venda com todos os itens (custo/estoque já baixaram ao lançar).
+      batch.set(saleRef, {
+        origin: "comanda",
+        customer: tab.customer,
+        items: tab.items || [],
+        total: paid,            // dinheiro que entrou agora
+        fullTotal: total,       // valor total da conta (referência)
+        priorPaid: already,     // quanto já havia sido pago em parciais
+        partial: false,
+        payments,
+        sessionId: register.sessionId || null,
+        paidAt: serverTimestamp(),
+      });
+      batch.delete(doc(db, "tabs", tab.id));
+    } else {
+      // Pagamento parcial: registra só o dinheiro; itens seguem na comanda.
+      batch.set(saleRef, {
+        origin: "comanda",
+        customer: tab.customer,
+        items: [],
+        total: paid,
+        partial: true,
+        payments,
+        sessionId: register.sessionId || null,
+        paidAt: serverTimestamp(),
+      });
+      batch.update(doc(db, "tabs", tab.id), { paidSoFar: round2(already + paid) });
+    }
     await batch.commit();
   };
 
@@ -241,7 +303,7 @@ export function DataProvider({ children }) {
     addExpense, updateExpense, deleteExpense,
     withdrawals, sessionWithdrawals, addWithdrawal, deleteWithdrawal,
     openRegister, closeRegister,
-    openTab, addItemToTab, removeItemFromTab, closeTab, cancelTab,
+    openTab, addItemToTab, addManualToTab, removeItemFromTab, closeTab, payTab, cancelTab,
     createSale, voidSale,
     summary: useMemo(() => summarize(sales, register.openingCash || 0, withdrawalsTotal), [sales, register.openingCash, withdrawalsTotal]),
   };
@@ -268,6 +330,8 @@ export function summarize(sales, openingCash, withdrawalsTotal = 0) {
     for (const it of s.items || []) {
       if (it.kind === "ficha") {
         fichaSold += it.price * it.qty;
+      } else if (it.kind === "manual") {
+        // Valor avulso digitado na hora: sem custo e não conta no "mais vendido".
       } else {
         custoSaidas += (it.cost || 0) * it.qty;
         topMap[it.name] = (topMap[it.name] || 0) + it.qty;

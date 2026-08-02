@@ -1,17 +1,40 @@
 import { useMemo, useState } from "react";
-import { Package } from "lucide-react";
+import { Package, Search, X } from "lucide-react";
 import { CATS, catLabel, LOW_STOCK } from "../lib/constants";
 import { brl } from "../lib/format";
 
+// Remove acentos e caixa para a busca ficar tolerante ("caipirinha" acha "Caipiríssima").
+const norm = (s) => (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
 export default function ProductPicker({ products, onPick, badges = {}, allowOut = false }) {
   const [cat, setCat] = useState("todos");
-  const list = useMemo(
-    () => products.filter((p) => cat === "todos" || p.category === cat),
-    [products, cat]
-  );
+  const [q, setQ] = useState("");
+  const list = useMemo(() => {
+    const nq = norm(q).trim();
+    return products.filter(
+      (p) =>
+        (cat === "todos" || p.category === cat) &&
+        (!nq || norm(p.name).includes(nq))
+    );
+  }, [products, cat, q]);
 
   return (
     <div>
+      <div className="db-search">
+        <Search size={16} className="db-search-ic" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Pesquisar produto..."
+          aria-label="Pesquisar produto"
+        />
+        {q && (
+          <button className="db-search-clear" onClick={() => setQ("")} aria-label="Limpar busca">
+            <X size={15} />
+          </button>
+        )}
+      </div>
+
       <div className="db-chips">
         <button className={"db-chip " + (cat === "todos" ? "on" : "")} onClick={() => setCat("todos")}>Todos</button>
         {CATS.map((c) => (
@@ -24,7 +47,7 @@ export default function ProductPicker({ products, onPick, badges = {}, allowOut 
       {list.length === 0 ? (
         <div className="db-empty sm">
           <Package size={24} className="db-empty-ic" />
-          <p>Nenhum produto nessa categoria. Cadastre em Estoque.</p>
+          <p>{q.trim() ? `Nada encontrado para "${q.trim()}".` : "Nenhum produto nessa categoria. Cadastre em Estoque."}</p>
         </div>
       ) : (
         <div className="db-grid">
